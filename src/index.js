@@ -1,5 +1,3 @@
-import axios from "axios";
-
 export const PING_URL_KEY = "PING_URL";
 
 export const handler = async (_event) => {
@@ -22,19 +20,27 @@ export const handler = async (_event) => {
   }
 
   try {
-    const response = await axios.get(url);
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(10000),
+    });
+
+    const headers = Object.fromEntries(response.headers);
+    const contentType = response.headers.get("content-type") || "";
+    const data = contentType.includes("application/json")
+      ? await response.json()
+      : await response.text();
 
     const successResponse = {
       timestamp,
       statusCode: response.status,
-      headers: response.headers,
+      headers,
       body: JSON.stringify({
         message: `Pinged ${url}`,
         status: response.status,
         statusText: response.statusText,
-        data: response.data,
-        headers: response.headers,
-        requestConfig: response.config,
+        ok: response.ok,
+        data,
+        headers,
       }),
     };
 
@@ -45,18 +51,11 @@ export const handler = async (_event) => {
 
     const errorResponse = {
       timestamp,
-      statusCode: error.response?.status || 500,
+      statusCode: 500,
       body: JSON.stringify({
         message: `Error pinging ${url}`,
         error: error.message,
-        response: error.response
-          ? {
-              status: error.response.status,
-              statusText: error.response.statusText,
-              data: error.response.data,
-              headers: error.response.headers,
-            }
-          : null,
+        name: error.name,
       }),
     };
 
